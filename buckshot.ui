@@ -10,18 +10,18 @@
     <x>0</x>
     <y>0</y>
     <width>875</width>
-    <height>748</height>
+    <height>762</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>SARSoft Buckshot</string>
   </property>
-  <widget class="QLineEdit" name="numbersField">
+  <widget class="QLineEdit" name="coordsField">
    <property name="geometry">
     <rect>
-     <x>220</x>
+     <x>270</x>
      <y>20</y>
-     <width>641</width>
+     <width>591</width>
      <height>51</height>
     </rect>
    </property>
@@ -45,7 +45,7 @@
     <rect>
      <x>30</x>
      <y>20</y>
-     <width>181</width>
+     <width>231</width>
      <height>51</height>
     </rect>
    </property>
@@ -58,15 +58,15 @@
     </font>
    </property>
    <property name="text">
-    <string>Numbers</string>
+    <string>Coordinates</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>60</x>
+     <x>0</x>
      <y>70</y>
-     <width>781</width>
+     <width>871</width>
      <height>61</height>
     </rect>
    </property>
@@ -77,8 +77,8 @@
     </font>
    </property>
    <property name="text">
-    <string>Only enter the numbers you received, in order.
-Do not enter any spaces, punctuation, or minus sign.</string>
+    <string>Enter only the numbers from the raw coordinates that you were given.
+Do not use spaces or any punctuation.</string>
    </property>
    <property name="alignment">
     <set>Qt::AlignCenter</set>
@@ -87,10 +87,10 @@ Do not enter any spaces, punctuation, or minus sign.</string>
   <widget class="QPushButton" name="goButton">
    <property name="geometry">
     <rect>
-     <x>230</x>
-     <y>670</y>
-     <width>431</width>
-     <height>61</height>
+     <x>40</x>
+     <y>680</y>
+     <width>281</width>
+     <height>71</height>
     </rect>
    </property>
    <property name="font">
@@ -102,22 +102,22 @@ Do not enter any spaces, punctuation, or minus sign.</string>
     </font>
    </property>
    <property name="text">
-    <string>Create SARSoft Markers</string>
+    <string>Create Markers</string>
    </property>
   </widget>
   <widget class="QLineEdit" name="markerNameField">
    <property name="geometry">
     <rect>
-     <x>190</x>
-     <y>620</y>
-     <width>191</width>
+     <x>160</x>
+     <y>630</y>
+     <width>181</width>
      <height>31</height>
     </rect>
    </property>
    <property name="font">
     <font>
      <family>Segoe UI</family>
-     <pointsize>14</pointsize>
+     <pointsize>11</pointsize>
      <weight>50</weight>
      <bold>false</bold>
     </font>
@@ -132,9 +132,9 @@ Do not enter any spaces, punctuation, or minus sign.</string>
   <widget class="QLabel" name="label_11">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>610</y>
-     <width>171</width>
+     <x>-10</x>
+     <y>620</y>
+     <width>161</width>
      <height>51</height>
     </rect>
    </property>
@@ -186,7 +186,7 @@ Do not enter any spaces, punctuation, or minus sign.</string>
      <x>360</x>
      <y>290</y>
      <width>421</width>
-     <height>151</height>
+     <height>131</height>
     </rect>
    </property>
    <property name="font">
@@ -205,9 +205,9 @@ Do not enter any spaces, punctuation, or minus sign.</string>
    <property name="geometry">
     <rect>
      <x>360</x>
-     <y>450</y>
+     <y>430</y>
      <width>421</width>
-     <height>151</height>
+     <height>171</height>
     </rect>
    </property>
    <property name="font">
@@ -269,7 +269,7 @@ Do not enter any spaces, punctuation, or minus sign.</string>
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>450</y>
+     <y>430</y>
      <width>321</width>
      <height>51</height>
     </rect>
@@ -291,16 +291,16 @@ Do not enter any spaces, punctuation, or minus sign.</string>
   <widget class="QLineEdit" name="URLField">
    <property name="geometry">
     <rect>
-     <x>470</x>
-     <y>620</y>
-     <width>371</width>
+     <x>420</x>
+     <y>700</y>
+     <width>451</width>
      <height>31</height>
     </rect>
    </property>
    <property name="font">
     <font>
      <family>Segoe UI</family>
-     <pointsize>14</pointsize>
+     <pointsize>11</pointsize>
      <weight>50</weight>
      <bold>false</bold>
     </font>
@@ -315,8 +315,8 @@ Do not enter any spaces, punctuation, or minus sign.</string>
   <widget class="QLabel" name="label_12">
    <property name="geometry">
     <rect>
-     <x>400</x>
-     <y>610</y>
+     <x>350</x>
+     <y>690</y>
      <width>61</width>
      <height>51</height>
     </rect>
@@ -339,9 +339,75 @@ Do not enter any spaces, punctuation, or minus sign.</string>
   <widget class="QLabel" name="label_13">
    <property name="geometry">
     <rect>
-     <x>330</x>
+     <x>0</x>
      <y>130</y>
-     <width>241</width>
+     <width>871</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Segoe UI</family>
+     <pointsize>16</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Possibilities</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_6">
+   <property name="geometry">
+    <rect>
+     <x>370</x>
+     <y>730</y>
+     <width>501</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Optional.  URL of a saved SARSoft map, hosted locally or on current network.</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="gpxFileNameField">
+   <property name="geometry">
+    <rect>
+     <x>420</x>
+     <y>630</y>
+     <width>361</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Segoe UI</family>
+     <pointsize>11</pointsize>
+     <weight>50</weight>
+     <bold>false</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="frame">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_14">
+   <property name="geometry">
+    <rect>
+     <x>350</x>
+     <y>620</y>
+     <width>61</width>
      <height>51</height>
     </rect>
    </property>
@@ -354,17 +420,67 @@ Do not enter any spaces, punctuation, or minus sign.</string>
     </font>
    </property>
    <property name="text">
-    <string>Possibilities</string>
+    <string>GPX</string>
    </property>
    <property name="alignment">
-    <set>Qt::AlignCenter</set>
+    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_7">
+   <property name="geometry">
+    <rect>
+     <x>370</x>
+     <y>660</y>
+     <width>511</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Optional.  Full .gpx filename.  File is not written until 'Create Markers' is clicked.</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="gpxBrowseButton">
+   <property name="geometry">
+    <rect>
+     <x>790</x>
+     <y>630</y>
+     <width>81</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Segoe UI</family>
+     <pointsize>12</pointsize>
+     <weight>50</weight>
+     <bold>false</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Browse</string>
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>coordsField</tabstop>
+  <tabstop>markerNameField</tabstop>
+  <tabstop>gpxFileNameField</tabstop>
+  <tabstop>URLField</tabstop>
+  <tabstop>goButton</tabstop>
+  <tabstop>DMSsField</tabstop>
+  <tabstop>DdField</tabstop>
+  <tabstop>DMmField</tabstop>
+  <tabstop>gpxBrowseButton</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
-   <sender>numbersField</sender>
+   <sender>coordsField</sender>
    <signal>textChanged(QString)</signal>
    <receiver>buckshot</receiver>
    <slot>calcLatLon()</slot>
@@ -374,8 +490,8 @@ Do not enter any spaces, punctuation, or minus sign.</string>
      <y>54</y>
     </hint>
     <hint type="destinationlabel">
-     <x>854</x>
-     <y>102</y>
+     <x>733</x>
+     <y>8</y>
     </hint>
    </hints>
   </connection>
@@ -386,12 +502,44 @@ Do not enter any spaces, punctuation, or minus sign.</string>
    <slot>createMarkers()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>816</x>
-     <y>396</y>
+     <x>320</x>
+     <y>680</y>
     </hint>
     <hint type="destinationlabel">
-     <x>870</x>
-     <y>395</y>
+     <x>349</x>
+     <y>688</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gpxBrowseButton</sender>
+   <signal>clicked(bool)</signal>
+   <receiver>buckshot</receiver>
+   <slot>gpxSetFileName()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>823</x>
+     <y>641</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>796</x>
+     <y>605</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>markerNameField</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>buckshot</receiver>
+   <slot>markerNameChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>252</x>
+     <y>640</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>188</x>
+     <y>606</y>
     </hint>
    </hints>
   </connection>
@@ -399,5 +547,7 @@ Do not enter any spaces, punctuation, or minus sign.</string>
  <slots>
   <slot>calcLatLon()</slot>
   <slot>createMarkers()</slot>
+  <slot>gpxSetFileName()</slot>
+  <slot>markerNameChanged()</slot>
  </slots>
 </ui>
