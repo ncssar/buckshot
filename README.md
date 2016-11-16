@@ -32,3 +32,6 @@ Regardless of the reason, this program gives quick visual verification.
 ![buckshot GUI](/doc/buckshot.png)
 
 ![buckshot sarsoft map](/doc/buckshot_map.png)
+
+[![SAR Buckshot video](/doc/buckshot_video_thumb.png)](https://www.youtube.com/watch?v=QPygvh3QiJA)
+
