@@ -1,12 +1,54 @@
+# #############################################################################
 #
-# buckshot - given a set of numbers and a marker name, make sarsoft markers
-#  corresponding to all three lat-lon coordinate systems
+#  buckshot.py - given a set of numbers and a marker name, make sarsoft markers
+#   corresponding to all three lat-lon coordinate systems
 #
+#
+#   developed for Nevada County Sheriff's Search and Rescue
+#    Copyright (c) 2015 Tom Grundy
+#
+#  http://ncssarradiologsoftware.sourceforge.net
+#
+#  Contact the author at nccaves@yahoo.com
+#   Attribution, feedback, bug reports and feature requests are appreciated
+#
+#  REVISION HISTORY
+#-----------------------------------------------------------------------------
+#   DATE   |  AUTHOR  |  NOTES
+#-----------------------------------------------------------------------------
+#  5-29-16    TMG      optionally write a GPX file, with color and symbol data;
+#                        skip the URL export step if the URL field is blank;
+#                        rearrange GUI accordingly
+
+# #############################################################################
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  See included file LICENSE.txt for full license terms, also
+#  available at http://opensource.org/licenses/gpl-3.0.html
+#
+# ############################################################################
+#
+# Originally written and tested on Windows Vista Home Basic 32-bit
+#  with PyQt 5.4 and Python 3.4.2; should run for Windows Vista and higher
+#
+# Note, this file must be encoded as UTF-8, to preserve degree signs in the code
+#
+# ############################################################################
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+import xml.dom.minidom
 import regex as re
 from parse import *
 import sys
@@ -14,6 +56,47 @@ import requests
 import json
 
 from buckshot_ui import Ui_buckshot
+
+# valid delimiters: space, period, X, x, D, d, M, m, ', S, s, "
+# 'exact match' = all correct delimiters in all the correct places
+# 'close match' = some delimieter in all the correct places
+
+# first, define exactly what will qualify as an 'exact match';
+#  then, relax that definition som to define a 'close match'
+
+# make a canonical form of the input string;
+# make a cononical form of each possibility;
+# if they are identical, it is an exact match
+
+# i   string                 actual coordinates            should this be a match?
+# 1.  39d120d               39.0dN  -120.0dW                exact
+# 2.  39.0d120.0d                                           exact
+# 3.  39d-120d                                              exact
+# 4.  39120                                                 close
+# 5.  3901200                                               close
+# 4.  39d12m120d12m         39d12.0mN  -120d12.0mW          exact
+#
+# preprocess the input string:
+#  1. remove minus sign(s)
+#  2. convert to lowercase
+#  3. replace ' with m
+#  4. replace " with s
+#  5. replace all letters other than [dmsx] with <space>
+#  6. replace all multiple-spaces with just one space
+#  7. do some work to find the lat/lon break ('x'):
+#  7a. for each known delimiter [dms]: if the next delimiter is d, then insert
+#       'x' immediately after the current delimiter
+
+# preprocessed input string characteristics (i.e. canonical form):
+#  - no minus signs
+#  - unknown delimiters are represented by a <space>
+#  - known delimiters are [.dmsx]
+
+# criteria for exact match:
+#
+delimiterRegEx="[ .XxDdMm'Ss\"]"
+exactMatchPrefix="* "
+closeMatchPrefix="+ "
 
 class MyWindow(QDialog,Ui_buckshot):
 	def __init__(self,parent):
@@ -27,9 +110,78 @@ class MyWindow(QDialog,Ui_buckshot):
 		self.coordDMmStringList=[]
 		self.coordDMSsStringList=[]
 
+	def markerNameChanged(self):
+		print("markerNameChanged called")
+		markerName=self.ui.markerNameField.text()
+		fileName=self.ui.gpxFileNameField.text()
+		idx=fileName.find("buckshot_")
+		if idx > -1:
+			self.ui.gpxFileNameField.setText(fileName[0:idx]+"buckshot_"+markerName+".gpx")
+
+	def gpxSetFileName(self):
+##		print("Browse clicked.")
+		markerName=self.ui.markerNameField.text()
+		gpxFileName=QFileDialog.getSaveFileName(self,"GPX filename","C:\\buckshot_"+markerName+".gpx",filter="gpx (*.gpx)")
+##		print("  selected filename="+str(gpxFileName))
+		self.ui.gpxFileNameField.setText(gpxFileName[0])
+
+	def writeGPX(self,markerList):
+		doc=xml.dom.minidom.Document()
+		gpx=doc.createElement("gpx")
+		gpx.setAttribute("creator","BUCKSHOT")
+		gpx.setAttribute("version","1.1")
+		gpx.setAttribute("xmlns","http://www.topografix.com/GPX/1/1")
+
+		# each element in markerList will result in a gpx wpt token.
+		#  markerList element syntax = [name,lat,lon,color]
+
+		# <desc> CDATA contains SARSoft marker and color
+		# <sym> CDATA contains Locus marker, parsed from marker name
+		#  some relevant Locus markers:
+		#   z-ico04 = red dot
+		#   z-ico09 = cyan dot
+		#   z-ico14 = green dot
+		#   z-ico19 = yellow dot
+		#   misc-sunny = large green star bubble
+
+		for marker in markerList:
+##			print("marker:"+str(marker)+"\n")
+			wpt=doc.createElement("wpt")
+			wpt.setAttribute("lat",str(marker[1]))
+			wpt.setAttribute("lon",str(marker[2]))
+			name=doc.createElement("name")
+			desc=doc.createElement("desc")
+			sym=doc.createElement("sym")
+			descCDATAStr="comments=&url=%23"+marker[3][1:]
+			descCDATA=doc.createCDATASection(descCDATAStr)
+			if "_Dd" in marker[0]:
+				symCDATAStr="z-ico04"
+			elif "_DMm" in marker[0]:
+				symCDATAStr="z-ico09"
+			elif "_DMSs" in marker[0]:
+				symCDATAStr="z-ico19"
+			else:
+				symCDATAStr="z-ico14"
+
+			name.appendChild(doc.createTextNode(marker[0]))
+			desc.appendChild(descCDATA)
+			symCDATA=doc.createCDATASection(symCDATAStr)
+			sym.appendChild(symCDATA)
+			wpt.appendChild(name)
+			wpt.appendChild(desc)
+			wpt.appendChild(sym)
+			gpx.appendChild(wpt)
+
+		doc.appendChild(gpx)
+		gpxFileName=self.ui.gpxFileNameField.text()
+		print("Writing GPX file "+gpxFileName)
+		gpxFile=open(gpxFileName,"w")
+		gpxFile.write(doc.toprettyxml())
+		gpxFile.close()
+
 
 	# calcLatLon - make guesses about actual coordinates based on a string of numbers
-	#  called from textChanged of numbersField
+	#  called from textChanged of coordsField
 
 	# assumptions:
 	#  - Degrees Latitude is a two-digit number starting with 2, 3, or 4
@@ -44,7 +196,40 @@ class MyWindow(QDialog,Ui_buckshot):
 ##matches=re.finditer("1[012][0123456789]",numbers,overlapped=True)
 ##[match.span() for match in matches]
 
-		numbers=self.ui.numbersField.text()
+		coordString=self.ui.coordsField.text()
+
+		# shortCoordString = the 'canonical' form that the possibilities will
+		#  be compared to, to check for close or exact matches.  Same as
+		#  coordString, with standardized D/M/S delimiters; cannot eliminate all
+		#  spaces at this point since they may or may not be important delimiters;
+		#  therefore, will need to insert a space into the shortCoordString before
+		#  longitude for each possibility on the fly during parsing; this ensures
+		#  that original coordString with NO spaces at all can still make an
+		#  exact match.
+
+		shortCoordString=coordString.lower()
+		shortCoordString=re.sub(r'[Xx]',' ',shortCoordString) # replace X or x with space for canonical form
+		shortCoordString=re.sub(r'\s+',' ',shortCoordString) # get rid of duplicate spaces
+		shortCoordString=re.sub(r'\'','m',shortCoordString)
+		shortCoordString=re.sub(r'"','s',shortCoordString)
+		print("Short coordinate string for comparison:"+shortCoordString+"\n")
+
+
+
+		# different approach:
+		# make a list of the indeces and kinds of delimiters;
+		# if the indeces all match, it is a 'close' match;
+		# if the indeces all match AND each one is of the same kind, it is an 'exact' match
+
+		delimIter=re.finditer(r'[ .dDmMsS\'"-]+',coordString)
+
+
+
+##		numbers=re.sub(r'[ .dDmMsS\'"-]','',coordString)
+		numbers=re.sub(r'\D','',coordString)
+		print("Raw Numbers:"+numbers+"\n")
+
+##		numbers=self.ui.numbersField.text()
 		self.coordDdStringList=[]
 		self.coordDMmStringList=[]
 		self.coordDMSsStringList=[]
@@ -182,14 +367,14 @@ class MyWindow(QDialog,Ui_buckshot):
 				# set flags as to which ones are possible
 				# (whole min/sec <60 (2-digit) or <10 (1-digit))
 				latMin1Possible=int(latMin1)<10
-				latMin2Possible=int(latMin2)<60
+				latMin2Possible=int(latMin2)>9 and int(latMin2)<60
 				latSec11Possible=int(latSec11)<10
 				latSec12Possible=int(latSec12)<60
 				latSec21Possible=int(latSec21)<10
 				latSec22Possible=int(latSec22)<60
 
 				lonMin1Possible=int(lonMin1)<10
-				lonMin2Possible=int(lonMin2)<60
+				lonMin2Possible=int(lonMin2)>9 and int(lonMin2)<60
 				lonSec11Possible=int(lonSec11)<10
 				lonSec12Possible=int(lonSec12)<60
 				lonSec21Possible=int(lonSec21)<10
@@ -286,6 +471,42 @@ class MyWindow(QDialog,Ui_buckshot):
 		print("Possible DMm coordinates:\n"+str(self.coordDMmStringList))
 		print("Possible DMSs coordinates:\n"+str(self.coordDMSsStringList))
 
+		# now find the 'short' string corresponding to each possibility, and
+		#  see how close of a match it is to the originally entered string
+		#  (highlight the row in the GUI, and change the marker name and symbol)
+		for n,DdString in enumerate(self.coordDdStringList):
+			DdShort=DdString.replace("deg ","d")
+			DdShort=DdShort.replace("N x "," ")
+			DdShort=DdShort.replace("W","")
+			print("DdShort:"+DdShort)
+			if DdShort==shortCoordString:
+				print("  EXACT MATCH!")
+				self.coordDdStringList[n]=exactMatchPrefix+DdString
+				self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
+
+		for n,DMmString in enumerate(self.coordDMmStringList):
+			DMmShort=DMmString.replace("deg ","d")
+			DMmShort=DMmShort.replace("min ","m")
+			DMmShort=DMmShort.replace("N x "," ")
+			DMmShort=DMmShort.replace("W","")
+			print("DMmShort:"+DMmShort)
+			if DMmShort==shortCoordString:
+				print("  EXACT MATCH!")
+				self.coordDMmStringList[n]=exactMatchPrefix+DMmString
+				self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
+
+		for n,DMSsString in enumerate(self.coordDMSsStringList):
+			DMSsShort=DMSsString.replace("deg ","d")
+			DMSsShort=DMSsShort.replace("min ","m")
+			DMSsShort=DMSsShort.replace("sec ","s")
+			DMSsShort=DMSsShort.replace("N x "," ")
+			DMSsShort=DMSsShort.replace("W","")
+			print("DMSsShort:"+DMSsShort)
+			if DMSsShort==shortCoordString:
+				print("  EXACT MATCH!")
+				self.coordDMSsStringList[n]=exactMatchPrefix+DMSsString
+				self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
+
 	def createMarkers(self):
 		print("createMarkers called")
 		DdIdx=0
@@ -299,11 +520,32 @@ class MyWindow(QDialog,Ui_buckshot):
 		if markerName=="":
 			markerName="X"
 
+		# for exact match, use a ring with center dot
+		# for close match, use a hollow ring
+		# appropriate prefixes were determined from decoding json POST request
+		#  of a live header when creating each type of marker by hand
+		# final URL values:
+		#  simple dot: "#<hex_color>"
+		#  target: "c:target,<hex_color>" (notice, no pound sign)
+		#  ring: "c:ring,<hex_color>" (notice, no pound sign)
+		exactUrlPrefix="c:target,"
+		closeUrlPrefix="c:ring,"
+
 		# build a list of markers; each marker is a list:
 		# [markerName,lat,lon,color]
 		markerList=[]
 		for DdString in self.coordDdStringList:
 			DdIdx=DdIdx+1
+			prefix=""
+			urlPrefix="#"
+			if DdString.startswith(exactMatchPrefix):
+				DdString=DdString.replace(exactMatchPrefix,"")
+				prefix=exactMatchPrefix
+				urlPrefix=exactUrlPrefix
+			if DdString.startswith(closeMatchPrefix):
+				DdString=DdString.replace(closeMatchPrefix,"")
+				prefix=closeMatchPrefix
+				urlPrefix=closeUrlPrefix
 			print("  Dd : '"+DdString+"'")
 			r=parse("{:g}deg N x {:g}deg W",DdString)
 			print(r)
@@ -311,9 +553,19 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DdIdx)
 			else:
 				idx=""
-			markerList.append([markerName+"_Dd"+idx,r[0],-r[1],"#FF0000"])
+			markerList.append([prefix+markerName+"_Dd"+idx,r[0],-r[1],urlPrefix+"FF0000"])
 		for DMmString in self.coordDMmStringList:
 			DMmIdx=DMmIdx+1
+			prefix=""
+			urlPrefix="#"
+			if DMmString.startswith(exactMatchPrefix):
+				DMmString=DMmString.replace(exactMatchPrefix,"")
+				prefix=exactMatchPrefix
+				urlPrefix=exactUrlPrefix
+			if DMmString.startswith(closeMatchPrefix):
+				DMmString=DMmString.replace(closeMatchPrefix,"")
+				prefix=closeMatchPrefix
+				urlPrefix=closeUrlPrefix
 			print("  DMm : "+DMmString)
 			r=parse("{:g}deg {:g}min N x {:g}deg {:g}min W",DMmString)
 			print(r)
@@ -321,9 +573,19 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DMmIdx)
 			else:
 				idx=""
-			markerList.append([markerName+"_DMm"+idx,r[0]+r[1]/60.0,-(r[2]+r[3]/60.0),"#FF00FF"])
+			markerList.append([prefix+markerName+"_DMm"+idx,r[0]+r[1]/60.0,-(r[2]+r[3]/60.0),urlPrefix+"FF00FF"])
 		for DMSsString in self.coordDMSsStringList:
 			DMSsIdx=DMSsIdx+1
+			prefix=""
+			urlPrefix="#"
+			if DMSsString.startswith(exactMatchPrefix):
+				DMSsString=DMSsString.replace(exactMatchPrefix,"")
+				prefix=exactMatchPrefix
+				urlPrefix=exactUrlPrefix
+			if DMSsString.startswith(closeMatchPrefix):
+				DMSsString=DMSsString.replace(closeMatchPrefix,"")
+				prefix=closeMatchPrefix
+				urlPrefix=closeUrlPrefix
 			print("  DMSs: "+DMSsString)
 			r=parse("{:g}deg {:g}min {:g}sec N x {:g}deg {:g}min {:g}sec W",DMSsString)
 			print(r)
@@ -331,21 +593,32 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DMSsIdx)
 			else:
 				idx=""
-			markerList.append([markerName+"_DMSs"+idx,r[0]+r[1]/60.0+r[2]/3600.0,-(r[3]+r[4]/60.0+r[5]/3600.0),"#0000FF"])
+			markerList.append([prefix+markerName+"_DMSs"+idx,r[0]+r[1]/60.0+r[2]/3600.0,-(r[3]+r[4]/60.0+r[5]/3600.0),urlPrefix+"0000FF"])
 
 		print("Final marker list:")
 		print(str(markerList))
 
-		s=requests.session()
-		s.get(self.ui.URLField.text())
-		for marker in markerList:
-			j={}
-			j['label']=marker[0]
-			j['folderId']=None
-			j['url']=marker[3]
-			j['comments']=""
-			j['position']={"lat":marker[1],"lng":marker[2]}
-			r=s.post("http://localhost:8080/rest/marker/",data={'json':json.dumps(j)})
+		self.writeGPX(markerList)
+
+		if self.ui.URLField.text():
+			s=requests.session()
+			s.get(self.ui.URLField.text())
+			for marker in markerList:
+				j={}
+				j['label']=marker[0]
+				j['folderId']=None
+				j['url']=marker[3]
+				j['comments']=""
+				if marker[0].startswith(exactMatchPrefix):
+					j['comments']="EXACT match for specified coordinates!"
+				if marker[0].startswith(closeMatchPrefix):
+					j['comments']="CLOSE match for specified coordinates"
+				j['position']={"lat":marker[1],"lng":marker[2]}
+				r=s.post("http://localhost:8080/rest/marker/",data={'json':json.dumps(j)})
+				print("DUMP:")
+				print(json.dumps(j))
+		else:
+			print("No URL specified; skipping URL export.")
 
 
 def main():
