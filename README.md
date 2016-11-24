@@ -5,6 +5,8 @@ The coordinate possibilities can be sent to a GPX file, and can be sent to any a
 
 See the latest installation instructions [here](INSTALL.md).
 
+See the guidelines for contributing to this project [here](CONTRIBUTING.md).
+
 # Why?
 
 There are three lat/lon coordinate systems:
