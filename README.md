@@ -3,7 +3,7 @@ SAR coordinate buckshot - show lat/lon coordinate possibilities in all three coo
 
 The coordinate possibilities can be sent to a GPX file, and can be sent to any accessable saved SARSoft map.
 
-See the latest installation instructions [here](https://github.com/ncssar/buckshot/wiki/Installation).
+See the latest installation instructions [here](INSTALL.md).
 
 # Why?
 
