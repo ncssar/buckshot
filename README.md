@@ -3,6 +3,10 @@ SAR coordinate buckshot - show lat/lon coordinate possibilities in all three coo
 
 The coordinate possibilities can be sent to a GPX file, and can be sent to any accessable saved SARSoft map.
 
+See the latest installation instructions [here](INSTALL.md).
+
+See the guidelines for contributing to this project [here](CONTRIBUTING.md).
+
 # Why?
 
 There are three lat/lon coordinate systems:
@@ -32,3 +36,6 @@ Regardless of the reason, this program gives quick visual verification.
 ![buckshot GUI](/doc/buckshot.png)
 
 ![buckshot sarsoft map](/doc/buckshot_map.png)
+
+[![SAR Buckshot video](/doc/buckshot_video_thumb.png)](https://www.youtube.com/watch?v=QPygvh3QiJA)
+
