@@ -19,6 +19,7 @@
 #  5-29-16    TMG      optionally write a GPX file, with color and symbol data;
 #                        skip the URL export step if the URL field is blank;
 #                        rearrange GUI accordingly
+#  3-3-17     TMG      bug fixes and cleanup (fixes github issues 6,7,8,9)
 
 # #############################################################################
 #
@@ -54,6 +55,7 @@ from parse import *
 import sys
 import requests
 import json
+import os
 
 from buckshot_ui import Ui_buckshot
 
@@ -109,6 +111,12 @@ class MyWindow(QDialog,Ui_buckshot):
 		self.coordDdStringList=[]
 		self.coordDMmStringList=[]
 		self.coordDMSsStringList=[]
+		# default gpx dir: ~\Documents if it exists, ~ otherwise
+		self.gpxDefaultDir=os.path.expanduser("~")
+		docDir=self.gpxDefaultDir+"\\Documents"
+		if os.path.isdir(docDir):
+			self.gpxDefaultDir=docDir
+		self.ui.gpxFileNameField.setText(self.gpxDefaultDir+"\\buckshot_blank.gpx")
 
 	def markerNameChanged(self):
 		print("markerNameChanged called")
@@ -117,15 +125,27 @@ class MyWindow(QDialog,Ui_buckshot):
 		idx=fileName.find("buckshot_")
 		if idx > -1:
 			self.ui.gpxFileNameField.setText(fileName[0:idx]+"buckshot_"+markerName+".gpx")
-
+			
 	def gpxSetFileName(self):
-##		print("Browse clicked.")
 		markerName=self.ui.markerNameField.text()
-		gpxFileName=QFileDialog.getSaveFileName(self,"GPX filename","C:\\buckshot_"+markerName+".gpx",filter="gpx (*.gpx)")
-##		print("  selected filename="+str(gpxFileName))
-		self.ui.gpxFileNameField.setText(gpxFileName[0])
+		initVal=self.ui.gpxFileNameField.text()
+		if initVal=="":
+			initVal=self.gpxDefaultDir+"\\buckshot_"+markerName+".gpx"
+		gpxFileName=QFileDialog.getSaveFileName(self,"GPX filename",initVal,filter="gpx (*.gpx)")
+		# cancel from file dialog returns a real array with a blank filename;
+		#  prevent this from blanking out the filename field
+		if gpxFileName[0]!="":
+			self.ui.gpxFileNameField.setText(gpxFileName[0])
 
 	def writeGPX(self,markerList):
+		gpxFileName=self.ui.gpxFileNameField.text()
+		print("Writing GPX file "+gpxFileName)
+		
+		# make sure the file is writable; if not, return False here
+		gpxFile=self.fnameValidate(gpxFileName)
+		if not gpxFile:
+			return False
+
 		doc=xml.dom.minidom.Document()
 		gpx=doc.createElement("gpx")
 		gpx.setAttribute("creator","BUCKSHOT")
@@ -173,11 +193,11 @@ class MyWindow(QDialog,Ui_buckshot):
 			gpx.appendChild(wpt)
 
 		doc.appendChild(gpx)
-		gpxFileName=self.ui.gpxFileNameField.text()
-		print("Writing GPX file "+gpxFileName)
-		gpxFile=open(gpxFileName,"w")
+
 		gpxFile.write(doc.toprettyxml())
 		gpxFile.close()
+		return True
+
 
 
 	# calcLatLon - make guesses about actual coordinates based on a string of numbers
@@ -507,8 +527,27 @@ class MyWindow(QDialog,Ui_buckshot):
 				self.coordDMSsStringList[n]=exactMatchPrefix+DMSsString
 				self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
 
+	#fnameValidate: try writing a test file to the specified filename;
+	# return the filehandle if valid, or print the error message and return False
+	# if invalid for whatever reason
+	def fnameValidate(self,filename):
+		try:
+			f=open(filename,"w")
+		except (IOError,FileNotFoundError) as err:
+			QMessageBox.warning(self,"Invalid Filename","GPX filename is not valid:\n\n"+str(err)+"\n\nNo markers written to GPX or URL.  Fix or blank out the filename, and try again.")
+			return False
+		else:
+			return f
+		
 	def createMarkers(self):
 		print("createMarkers called")
+		
+		# if a gpx filename is specified, validate it first; if invalid, force
+		#  the user to fix it or blank it out before generating any URL markers
+
+		if not self.fnameValidate(self.ui.gpxFileNameField.text()):
+			return
+			
 		DdIdx=0
 		DMmIdx=0
 		DMSsIdx=0
@@ -598,27 +637,39 @@ class MyWindow(QDialog,Ui_buckshot):
 		print("Final marker list:")
 		print(str(markerList))
 
-		self.writeGPX(markerList)
+		if self.writeGPX(markerList):
+			infoStr="\nWrote GPX?   YES"
+		else:
+			infoStr="\nWrote GPX?   NO"
 
 		if self.ui.URLField.text():
 			s=requests.session()
-			s.get(self.ui.URLField.text())
-			for marker in markerList:
-				j={}
-				j['label']=marker[0]
-				j['folderId']=None
-				j['url']=marker[3]
-				j['comments']=""
-				if marker[0].startswith(exactMatchPrefix):
-					j['comments']="EXACT match for specified coordinates!"
-				if marker[0].startswith(closeMatchPrefix):
-					j['comments']="CLOSE match for specified coordinates"
-				j['position']={"lat":marker[1],"lng":marker[2]}
-				r=s.post("http://localhost:8080/rest/marker/",data={'json':json.dumps(j)})
-				print("DUMP:")
-				print(json.dumps(j))
+			try:
+				s.get(self.ui.URLField.text())
+			except:
+				QMessageBox.warning(self,"URL Failed","Could not communicate with the specfied URL.  Fix it or blank it out, and try again.")
+				infoStr+="\nWrote URL?   NO"
+			else:
+				for marker in markerList:
+					j={}
+					j['label']=marker[0]
+					j['folderId']=None
+					j['url']=marker[3]
+					j['comments']=""
+					if marker[0].startswith(exactMatchPrefix):
+						j['comments']="EXACT match for specified coordinates!"
+					if marker[0].startswith(closeMatchPrefix):
+						j['comments']="CLOSE match for specified coordinates"
+					j['position']={"lat":marker[1],"lng":marker[2]}
+					r=s.post("http://localhost:8080/rest/marker/",data={'json':json.dumps(j)})
+					print("DUMP:")
+					print(json.dumps(j))
+				infoStr+="\nWrote URL?   YES"
 		else:
+			infoStr+="\nWrote URL?   NO"
 			print("No URL specified; skipping URL export.")
+			
+		QMessageBox.information(self,"Markers Created","Markers created successfully.\n"+infoStr)
 
 
 def main():
