@@ -20,6 +20,7 @@
 #                        skip the URL export step if the URL field is blank;
 #                        rearrange GUI accordingly
 #  3-3-17     TMG      bug fixes and cleanup (fixes github issues 6,7,8,9)
+#  3-11-17    TMG      fix issue 10 (crash when URL is other than localhost)
 
 # #############################################################################
 #
@@ -643,28 +644,43 @@ class MyWindow(QDialog,Ui_buckshot):
 			infoStr="\nWrote GPX?   NO"
 
 		if self.ui.URLField.text():
+			# the domain and port is defined as the URL up to and including the first slash
+			#  after the http:// if it exists, or just the first slash otherwise
+			url=self.ui.URLField.text()
+			domainAndPort=url.lower().replace("http://","").split("/")[0]
+			print("domainAndPort: "+domainAndPort)
 			s=requests.session()
 			try:
-				s.get(self.ui.URLField.text())
+				s.get(url)
 			except:
 				QMessageBox.warning(self,"URL Failed","Could not communicate with the specfied URL.  Fix it or blank it out, and try again.")
 				infoStr+="\nWrote URL?   NO"
 			else:
+				postErr=""
 				for marker in markerList:
-					j={}
-					j['label']=marker[0]
-					j['folderId']=None
-					j['url']=marker[3]
-					j['comments']=""
-					if marker[0].startswith(exactMatchPrefix):
-						j['comments']="EXACT match for specified coordinates!"
-					if marker[0].startswith(closeMatchPrefix):
-						j['comments']="CLOSE match for specified coordinates"
-					j['position']={"lat":marker[1],"lng":marker[2]}
-					r=s.post("http://localhost:8080/rest/marker/",data={'json':json.dumps(j)})
-					print("DUMP:")
-					print(json.dumps(j))
-				infoStr+="\nWrote URL?   YES"
+					if postErr=="":
+						j={}
+						j['label']=marker[0]
+						j['folderId']=None
+						j['url']=marker[3]
+						j['comments']=""
+						if marker[0].startswith(exactMatchPrefix):
+							j['comments']="EXACT match for specified coordinates!"
+						if marker[0].startswith(closeMatchPrefix):
+							j['comments']="CLOSE match for specified coordinates"
+						j['position']={"lat":marker[1],"lng":marker[2]}
+						try:
+							r=s.post("http://"+domainAndPort+"/rest/marker/",data={'json':json.dumps(j)})
+						except requests.exceptions.RequestException as err:
+							postErr=err
+						else:
+							print("DUMP:")
+							print(json.dumps(j))
+				if postErr=="":
+					infoStr+="\nWrote URL?   YES"
+				else:
+					infoStr+="\nWrote URL?   NO"
+					QMessageBox.warning(self,"URL Post Request Failed","URL POST request failed:\n\n"+str(postErr)+"\n\nNo markers written to URL.  Fix or blank out the URL field, and try again.")
 		else:
 			infoStr+="\nWrote URL?   NO"
 			print("No URL specified; skipping URL export.")
