@@ -21,6 +21,13 @@
 #                        rearrange GUI accordingly
 #  3-3-17     TMG      bug fixes and cleanup (fixes github issues 6,7,8,9)
 #  3-11-17    TMG      fix issue 10 (crash when URL is other than localhost)
+#  4-16-17    TMG      fix issue 3 (mark the exact match) - don't attempt an
+#                        algorithm - just let the user select one possibility
+#                        as the best match; this required changing the fields
+#                        to QListWidgets; make sure the best match is exported
+#                        to sarsoft with appropriate text, and to gpx with
+#                        appropriate icon for Locus Map (android app).  Can
+#                        investigate best icons for other apps/programs later.
 
 # #############################################################################
 #
@@ -98,8 +105,8 @@ from buckshot_ui import Ui_buckshot
 # criteria for exact match:
 #
 delimiterRegEx="[ .XxDdMm'Ss\"]"
-exactMatchPrefix="* "
-closeMatchPrefix="+ "
+exactMatchPrefix="*"
+closeMatchPrefix="+"
 
 class MyWindow(QDialog,Ui_buckshot):
 	def __init__(self,parent):
@@ -118,6 +125,7 @@ class MyWindow(QDialog,Ui_buckshot):
 		if os.path.isdir(docDir):
 			self.gpxDefaultDir=docDir
 		self.ui.gpxFileNameField.setText(self.gpxDefaultDir+"\\buckshot_blank.gpx")
+		self.bestMatch=""
 
 	def markerNameChanged(self):
 		print("markerNameChanged called")
@@ -159,10 +167,12 @@ class MyWindow(QDialog,Ui_buckshot):
 		# <desc> CDATA contains SARSoft marker and color
 		# <sym> CDATA contains Locus marker, parsed from marker name
 		#  some relevant Locus markers:
+		#   z-ico01 = red down arrow
+		#   z-ico02 = red x
+		#   z-ico03 = red donut
 		#   z-ico04 = red dot
-		#   z-ico09 = cyan dot
-		#   z-ico14 = green dot
-		#   z-ico19 = yellow dot
+		#   z-ico05 = red down triangle
+		#   same sequence as above: 06-10 = cyan; 11-15=green; 16-20=yellow
 		#   misc-sunny = large green star bubble
 
 		for marker in markerList:
@@ -176,13 +186,25 @@ class MyWindow(QDialog,Ui_buckshot):
 			descCDATAStr="comments=&url=%23"+marker[3][1:]
 			descCDATA=doc.createCDATASection(descCDATAStr)
 			if "_Dd" in marker[0]:
-				symCDATAStr="z-ico04"
+				if marker[0].startswith(exactMatchPrefix):
+					symCDATAStr="z-ico01"
+				else:
+					symCDATAStr="z-ico04"
 			elif "_DMm" in marker[0]:
-				symCDATAStr="z-ico09"
+				if marker[0].startswith(exactMatchPrefix):
+					symCDATAStr="z-ico06"
+				else:
+					symCDATAStr="z-ico09"
 			elif "_DMSs" in marker[0]:
-				symCDATAStr="z-ico19"
+				if marker[0].startswith(exactMatchPrefix):
+					symCDATAStr="z-ico16"
+				else:
+					symCDATAStr="z-ico19"
 			else:
-				symCDATAStr="z-ico14"
+				if marker[0].startswith(exactMatchPrefix):
+					symCDATAStr="z-ico11"
+				else:
+					symCDATAStr="z-ico14"
 
 			name.appendChild(doc.createTextNode(marker[0]))
 			desc.appendChild(descCDATA)
@@ -484,9 +506,15 @@ class MyWindow(QDialog,Ui_buckshot):
 		else:
 			print("Longitude not found.")
 
-		self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
-		self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
-		self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
+# 		self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
+# 		self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
+# 		self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
+		self.ui.DdField.clear()
+		self.ui.DdField.addItems(self.coordDdStringList)
+		self.ui.DMmField.clear()
+		self.ui.DMmField.addItems(self.coordDMmStringList)
+		self.ui.DMSsField.clear()
+		self.ui.DMSsField.addItems(self.coordDMSsStringList)
 
 		print("Possible Dd coordinates:\n"+str(self.coordDdStringList))
 		print("Possible DMm coordinates:\n"+str(self.coordDMmStringList))
@@ -503,7 +531,9 @@ class MyWindow(QDialog,Ui_buckshot):
 			if DdShort==shortCoordString:
 				print("  EXACT MATCH!")
 				self.coordDdStringList[n]=exactMatchPrefix+DdString
-				self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
+# 				self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
+				self.ui.DdField.clear()
+				self.ui.DdField.addItems(self.coordDdStringList)
 
 		for n,DMmString in enumerate(self.coordDMmStringList):
 			DMmShort=DMmString.replace("deg ","d")
@@ -514,7 +544,9 @@ class MyWindow(QDialog,Ui_buckshot):
 			if DMmShort==shortCoordString:
 				print("  EXACT MATCH!")
 				self.coordDMmStringList[n]=exactMatchPrefix+DMmString
-				self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
+# 				self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
+				self.ui.DMmField.clear()
+				self.ui.DMmField.addItems(self.coordDMmStringList)
 
 		for n,DMSsString in enumerate(self.coordDMSsStringList):
 			DMSsShort=DMSsString.replace("deg ","d")
@@ -526,8 +558,46 @@ class MyWindow(QDialog,Ui_buckshot):
 			if DMSsShort==shortCoordString:
 				print("  EXACT MATCH!")
 				self.coordDMSsStringList[n]=exactMatchPrefix+DMSsString
-				self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
+# 				self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
+				self.ui.DMSsField.clear()
+				self.ui.DMSsField.addItems(self.coordDMSsStringList)
 
+	# possibilityClicked: when any row is clicked, unhighlight / unselect any
+	#  highlighted/selected rows in the other two coordinate system list widgets,
+	#  and use the selected row as the 'best match' possibility
+	def possibilityDdClicked(self):
+		clicked=self.ui.DdField.selectedItems()[0].text()
+		if clicked==self.bestMatch:
+			self.bestMatch=""
+			self.ui.DdField.clearSelection()
+		else:
+			self.bestMatch=clicked
+			print(self.bestMatch)
+		self.ui.DMmField.clearSelection()
+		self.ui.DMSsField.clearSelection()
+
+	def possibilityDMmClicked(self):
+		clicked=self.ui.DMmField.selectedItems()[0].text()
+		if clicked==self.bestMatch:
+			self.bestMatch=""
+			self.ui.DMmField.clearSelection()
+		else:
+			self.bestMatch=clicked
+			print(self.bestMatch)
+		self.ui.DdField.clearSelection()
+		self.ui.DMSsField.clearSelection()
+	
+	def possibilityDMSsClicked(self):
+		clicked=self.ui.DMSsField.selectedItems()[0].text()
+		if clicked==self.bestMatch:
+			self.bestMatch=""
+			self.ui.DMSsField.clearSelection()
+		else:
+			self.bestMatch=clicked
+			print(self.bestMatch)
+		self.ui.DdField.clearSelection()
+		self.ui.DMmField.clearSelection()
+		
 	#fnameValidate: try writing a test file to the specified filename;
 	# return the filehandle if valid, or print the error message and return False
 	# if invalid for whatever reason
@@ -578,7 +648,8 @@ class MyWindow(QDialog,Ui_buckshot):
 			DdIdx=DdIdx+1
 			prefix=""
 			urlPrefix="#"
-			if DdString.startswith(exactMatchPrefix):
+# 			if DdString.startswith(exactMatchPrefix):
+			if DdString==self.bestMatch:
 				DdString=DdString.replace(exactMatchPrefix,"")
 				prefix=exactMatchPrefix
 				urlPrefix=exactUrlPrefix
@@ -598,7 +669,8 @@ class MyWindow(QDialog,Ui_buckshot):
 			DMmIdx=DMmIdx+1
 			prefix=""
 			urlPrefix="#"
-			if DMmString.startswith(exactMatchPrefix):
+# 			if DMmString.startswith(exactMatchPrefix):
+			if DMmString==self.bestMatch:
 				DMmString=DMmString.replace(exactMatchPrefix,"")
 				prefix=exactMatchPrefix
 				urlPrefix=exactUrlPrefix
@@ -618,7 +690,8 @@ class MyWindow(QDialog,Ui_buckshot):
 			DMSsIdx=DMSsIdx+1
 			prefix=""
 			urlPrefix="#"
-			if DMSsString.startswith(exactMatchPrefix):
+# 			if DMSsString.startswith(exactMatchPrefix):
+			if DMSsString==self.bestMatch:
 				DMSsString=DMSsString.replace(exactMatchPrefix,"")
 				prefix=exactMatchPrefix
 				urlPrefix=exactUrlPrefix
@@ -665,7 +738,7 @@ class MyWindow(QDialog,Ui_buckshot):
 						j['url']=marker[3]
 						j['comments']=""
 						if marker[0].startswith(exactMatchPrefix):
-							j['comments']="EXACT match for specified coordinates!"
+							j['comments']="User-selected best match!"
 						if marker[0].startswith(closeMatchPrefix):
 							j['comments']="CLOSE match for specified coordinates"
 						j['position']={"lat":marker[1],"lng":marker[2]}
