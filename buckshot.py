@@ -28,6 +28,9 @@
 #                        to sarsoft with appropriate text, and to gpx with
 #                        appropriate icon for Locus Map (android app).  Can
 #                        investigate best icons for other apps/programs later.
+#  1-21-18    TMG      fix issue 12 (integrate with search-in-progress) by
+#                        creating a new sartopo folder each time, and placing
+#                        all newly created buckshot markers in that folder
 
 # #############################################################################
 #
@@ -729,12 +732,38 @@ class MyWindow(QDialog,Ui_buckshot):
 				QMessageBox.warning(self,"URL Failed","Could not communicate with the specfied URL.  Fix it or blank it out, and try again.")
 				infoStr+="\nWrote URL?   NO"
 			else:
+				folderId=None
 				postErr=""
+				# first, make a folder to put all the markers in
+				f={}
+				f['label']="buckshot_"+markerName
+				try:
+					r=s.post("http://"+domainAndPort+"/rest/folder/",data={'json':json.dumps(f)})
+				except requests.exceptions.RequestException as err:
+					postErr=err
+				else:
+					print("DUMP:")
+					print(json.dumps(f))
+					try:
+						rj=r.json()
+					except:
+						print("ERROR: could not parse json in folder request response.")
+						print("  response text:"+r.content)
+					else:
+						print("RESPONSE:")
+						print(rj)
+						if 'id' in rj:
+							folderId=rj['id']
+						else:
+							print("No folder ID was returned from the folder request;")
+							print("  response content:"+r.content)
+					
+				# next, make all the markers (in the new folder)
 				for marker in markerList:
 					if postErr=="":
 						j={}
 						j['label']=marker[0]
-						j['folderId']=None
+						j['folderId']=folderId
 						j['url']=marker[3]
 						j['comments']=""
 						if marker[0].startswith(exactMatchPrefix):
