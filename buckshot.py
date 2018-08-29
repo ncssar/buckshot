@@ -31,7 +31,10 @@
 #  1-21-18    TMG      fix issue 12 (integrate with search-in-progress) by
 #                        creating a new sartopo folder each time, and placing
 #                        all newly created buckshot markers in that folder
-
+#  8-29-18    TMG      fix #14 (work with either API version) by using external
+#                        module sartopo_python (see separate GitHub project
+#                        by that name)
+#
 # #############################################################################
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -67,6 +70,8 @@ import sys
 import requests
 import json
 import os
+
+from sartopo_python import SartopoSession
 
 from buckshot_ui import Ui_buckshot
 
@@ -720,69 +725,27 @@ class MyWindow(QDialog,Ui_buckshot):
 			infoStr="\nWrote GPX?   NO"
 
 		if self.ui.URLField.text():
-			# the domain and port is defined as the URL up to and including the first slash
-			#  after the http:// if it exists, or just the first slash otherwise
+			
 			url=self.ui.URLField.text()
-			domainAndPort=url.lower().replace("http://","").split("/")[0]
+			p=url.lower().replace("http://","").split("/")
+			domainAndPort=p[0]
+			mapID=p[-1]
 			print("domainAndPort: "+domainAndPort)
-			s=requests.session()
-			try:
-				s.get(url)
-			except:
-				QMessageBox.warning(self,"URL Failed","Could not communicate with the specfied URL.  Fix it or blank it out, and try again.")
-				infoStr+="\nWrote URL?   NO"
-			else:
-				folderId=None
-				postErr=""
-				# first, make a folder to put all the markers in
-				f={}
-				f['label']="buckshot_"+markerName
-				try:
-					r=s.post("http://"+domainAndPort+"/rest/folder/",data={'json':json.dumps(f)})
-				except requests.exceptions.RequestException as err:
-					postErr=err
-				else:
-					print("DUMP:")
-					print(json.dumps(f))
-					try:
-						rj=r.json()
-					except:
-						print("ERROR: could not parse json in folder request response.")
-						print("  response text:"+r.content)
-					else:
-						print("RESPONSE:")
-						print(rj)
-						if 'id' in rj:
-							folderId=rj['id']
-						else:
-							print("No folder ID was returned from the folder request;")
-							print("  response content:"+r.content)
-					
-				# next, make all the markers (in the new folder)
-				for marker in markerList:
-					if postErr=="":
-						j={}
-						j['label']=marker[0]
-						j['folderId']=folderId
-						j['url']=marker[3]
-						j['comments']=""
-						if marker[0].startswith(exactMatchPrefix):
-							j['comments']="User-selected best match!"
-						if marker[0].startswith(closeMatchPrefix):
-							j['comments']="CLOSE match for specified coordinates"
-						j['position']={"lat":marker[1],"lng":marker[2]}
-						try:
-							r=s.post("http://"+domainAndPort+"/rest/marker/",data={'json':json.dumps(j)})
-						except requests.exceptions.RequestException as err:
-							postErr=err
-						else:
-							print("DUMP:")
-							print(json.dumps(j))
-				if postErr=="":
-					infoStr+="\nWrote URL?   YES"
-				else:
-					infoStr+="\nWrote URL?   NO"
-					QMessageBox.warning(self,"URL Post Request Failed","URL POST request failed:\n\n"+str(postErr)+"\n\nNo markers written to URL.  Fix or blank out the URL field, and try again.")
+			print("map ID: "+mapID)
+			
+			sts=SartopoSession(mapID)
+			fid=sts.addFolder("Buckshot")
+			for marker in markerList:
+				name=marker[0]
+				url=marker[3]
+				[name,lat,lon,url]=marker
+				comments=""
+				if name.startswith(exactMatchPrefix):
+					comments="User-selected best match!"
+				if name.startswith(closeMatchPrefix):
+					comments="CLOSE match for specified coordinates"
+				sts.addMarker(lat,lon,marker[0],fid,url,comments)
+			
 		else:
 			infoStr+="\nWrote URL?   NO"
 			print("No URL specified; skipping URL export.")
