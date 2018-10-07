@@ -21,7 +21,7 @@
 #                        rearrange GUI accordingly
 #  3-3-17     TMG      bug fixes and cleanup (fixes github issues 6,7,8,9)
 #  3-11-17    TMG      fix issue 10 (crash when URL is other than localhost)
-#  4-16-17    TMG      fix issue 3 (mark the exact match) - don't attempt an
+#  4-16-17    TMG      fix issue 3 (mark the best match) - don't attempt an
 #                        algorithm - just let the user select one possibility
 #                        as the best match; this required changing the fields
 #                        to QListWidgets; make sure the best match is exported
@@ -34,6 +34,10 @@
 #  8-29-18    TMG      fix #14 (work with either API version) by using external
 #                        module sartopo_python (see separate GitHub project
 #                        by that name)
+#  10-7-18    TMG      overhaul to work with significant api changes in v4151
+#                        of sar.jar - probably not backwards compatible - required
+#                        changes to sartopo_python also; allow URL on network
+#                        other than localhost
 #
 # #############################################################################
 #
@@ -76,14 +80,14 @@ from sartopo_python import SartopoSession
 from buckshot_ui import Ui_buckshot
 
 # valid delimiters: space, period, X, x, D, d, M, m, ', S, s, "
-# 'exact match' = all correct delimiters in all the correct places
+# 'best match' = all correct delimiters in all the correct places
 # 'close match' = some delimieter in all the correct places
 
 # first, define exactly what will qualify as an 'exact match';
-#  then, relax that definition som to define a 'close match'
+#  then, relax that definition some to define a 'close match'
 
 # make a canonical form of the input string;
-# make a cononical form of each possibility;
+# make a canonical form of each possibility;
 # if they are identical, it is an exact match
 
 # i   string                 actual coordinates            should this be a match?
@@ -113,8 +117,8 @@ from buckshot_ui import Ui_buckshot
 # criteria for exact match:
 #
 delimiterRegEx="[ .XxDdMm'Ss\"]"
-exactMatchPrefix="*"
-closeMatchPrefix="+"
+bestMatchLabelPrefix="*"
+closeMatchLabelPrefix="+"
 
 class MyWindow(QDialog,Ui_buckshot):
 	def __init__(self,parent):
@@ -185,36 +189,43 @@ class MyWindow(QDialog,Ui_buckshot):
 
 		for marker in markerList:
 ##			print("marker:"+str(marker)+"\n")
+			[title,lat,lon,color,symbol]=marker
+			description=""
+			if title.startswith(bestMatchLabelPrefix):
+				description="User-selected best match!"
+			if title.startswith(closeMatchLabelPrefix):
+				description="CLOSE match for specified coordinates"
 			wpt=doc.createElement("wpt")
-			wpt.setAttribute("lat",str(marker[1]))
-			wpt.setAttribute("lon",str(marker[2]))
+			wpt.setAttribute("lat",str(lat))
+			wpt.setAttribute("lon",str(lon))
 			name=doc.createElement("name")
 			desc=doc.createElement("desc")
 			sym=doc.createElement("sym")
-			descCDATAStr="comments=&url=%23"+marker[3][1:]
+# 			descCDATAStr="comments=&url=%23"+marker[3][1:]
+			descCDATAStr=description
 			descCDATA=doc.createCDATASection(descCDATAStr)
-			if "_Dd" in marker[0]:
-				if marker[0].startswith(exactMatchPrefix):
+			if "_Dd" in title: # red
+				if title.startswith(bestMatchLabelPrefix):
 					symCDATAStr="z-ico01"
 				else:
 					symCDATAStr="z-ico04"
-			elif "_DMm" in marker[0]:
-				if marker[0].startswith(exactMatchPrefix):
+			elif "_DMm" in title: # cyan
+				if title.startswith(bestMatchLabelPrefix):
 					symCDATAStr="z-ico06"
 				else:
 					symCDATAStr="z-ico09"
-			elif "_DMSs" in marker[0]:
-				if marker[0].startswith(exactMatchPrefix):
+			elif "_DMSs" in title: # yellow
+				if title.startswith(bestMatchLabelPrefix):
 					symCDATAStr="z-ico16"
 				else:
 					symCDATAStr="z-ico19"
 			else:
-				if marker[0].startswith(exactMatchPrefix):
+				if title.startswith(bestMatchLabelPrefix):
 					symCDATAStr="z-ico11"
 				else:
 					symCDATAStr="z-ico14"
 
-			name.appendChild(doc.createTextNode(marker[0]))
+			name.appendChild(doc.createTextNode(title))
 			desc.appendChild(descCDATA)
 			symCDATA=doc.createCDATASection(symCDATAStr)
 			sym.appendChild(symCDATA)
@@ -242,7 +253,7 @@ class MyWindow(QDialog,Ui_buckshot):
 
 	def calcLatLon(self):
 
-### code to get overlapping matches (i.e. each possible longitude whole number) and their indeces:
+### code to get overlapping matches (i.e. each possible longitude whole number) and their indices:
 ##import regex as re
 ##matches=re.finditer("1[012][0123456789]",numbers,overlapped=True)
 ##[match.span() for match in matches]
@@ -256,7 +267,7 @@ class MyWindow(QDialog,Ui_buckshot):
 		#  therefore, will need to insert a space into the shortCoordString before
 		#  longitude for each possibility on the fly during parsing; this ensures
 		#  that original coordString with NO spaces at all can still make an
-		#  exact match.
+		#  best match.
 
 		shortCoordString=coordString.lower()
 		shortCoordString=re.sub(r'[Xx]',' ',shortCoordString) # replace X or x with space for canonical form
@@ -270,7 +281,7 @@ class MyWindow(QDialog,Ui_buckshot):
 		# different approach:
 		# make a list of the indeces and kinds of delimiters;
 		# if the indeces all match, it is a 'close' match;
-		# if the indeces all match AND each one is of the same kind, it is an 'exact' match
+		# if the indeces all match AND each one is of the same kind, it is an 'best' match
 
 		delimIter=re.finditer(r'[ .dDmMsS\'"-]+',coordString)
 
@@ -538,7 +549,7 @@ class MyWindow(QDialog,Ui_buckshot):
 			print("DdShort:"+DdShort)
 			if DdShort==shortCoordString:
 				print("  EXACT MATCH!")
-				self.coordDdStringList[n]=exactMatchPrefix+DdString
+				self.coordDdStringList[n]=bestMatchLabelPrefix+DdString
 # 				self.ui.DdField.setPlainText("\n".join(self.coordDdStringList))
 				self.ui.DdField.clear()
 				self.ui.DdField.addItems(self.coordDdStringList)
@@ -551,7 +562,7 @@ class MyWindow(QDialog,Ui_buckshot):
 			print("DMmShort:"+DMmShort)
 			if DMmShort==shortCoordString:
 				print("  EXACT MATCH!")
-				self.coordDMmStringList[n]=exactMatchPrefix+DMmString
+				self.coordDMmStringList[n]=bestMatchLabelPrefix+DMmString
 # 				self.ui.DMmField.setPlainText("\n".join(self.coordDMmStringList))
 				self.ui.DMmField.clear()
 				self.ui.DMmField.addItems(self.coordDMmStringList)
@@ -565,7 +576,7 @@ class MyWindow(QDialog,Ui_buckshot):
 			print("DMSsShort:"+DMSsShort)
 			if DMSsShort==shortCoordString:
 				print("  EXACT MATCH!")
-				self.coordDMSsStringList[n]=exactMatchPrefix+DMSsString
+				self.coordDMSsStringList[n]=bestMatchLabelPrefix+DMSsString
 # 				self.ui.DMSsField.setPlainText("\n".join(self.coordDMSsStringList))
 				self.ui.DMSsField.clear()
 				self.ui.DMSsField.addItems(self.coordDMSsStringList)
@@ -638,7 +649,7 @@ class MyWindow(QDialog,Ui_buckshot):
 		if markerName=="":
 			markerName="X"
 
-		# for exact match, use a ring with center dot
+		# for best match, use a ring with center dot
 		# for close match, use a hollow ring
 		# appropriate prefixes were determined from decoding json POST request
 		#  of a live header when creating each type of marker by hand
@@ -646,25 +657,25 @@ class MyWindow(QDialog,Ui_buckshot):
 		#  simple dot: "#<hex_color>"
 		#  target: "c:target,<hex_color>" (notice, no pound sign)
 		#  ring: "c:ring,<hex_color>" (notice, no pound sign)
-		exactUrlPrefix="c:target,"
-		closeUrlPrefix="c:ring,"
+		bestMatchSymbol="c:target"
+		closeMatchSymbol="c:ring"
 
 		# build a list of markers; each marker is a list:
 		# [markerName,lat,lon,color]
 		markerList=[]
 		for DdString in self.coordDdStringList:
 			DdIdx=DdIdx+1
-			prefix=""
-			urlPrefix="#"
-# 			if DdString.startswith(exactMatchPrefix):
+			labelPrefix=""
+			symbol="point"
+# 			if DdString.startswith(bestMatchLabelPrefix):
 			if DdString==self.bestMatch:
-				DdString=DdString.replace(exactMatchPrefix,"")
-				prefix=exactMatchPrefix
-				urlPrefix=exactUrlPrefix
-			if DdString.startswith(closeMatchPrefix):
-				DdString=DdString.replace(closeMatchPrefix,"")
-				prefix=closeMatchPrefix
-				urlPrefix=closeUrlPrefix
+				DdString=DdString.replace(bestMatchLabelPrefix,"")
+				labelPrefix=bestMatchLabelPrefix
+				symbol=bestMatchSymbol
+			if DdString.startswith(closeMatchLabelPrefix):
+				DdString=DdString.replace(closeMatchLabelPrefix,"")
+				labelPrefix=closeMatchLabelPrefix
+				symbol=closeMatchSymbol
 			print("  Dd : '"+DdString+"'")
 			r=parse("{:g}deg N x {:g}deg W",DdString)
 			print(r)
@@ -672,20 +683,20 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DdIdx)
 			else:
 				idx=""
-			markerList.append([prefix+markerName+"_Dd"+idx,r[0],-r[1],urlPrefix+"FF0000"])
+			markerList.append([labelPrefix+markerName+"_Dd"+idx,r[0],-r[1],"FF0000",symbol])
 		for DMmString in self.coordDMmStringList:
 			DMmIdx=DMmIdx+1
-			prefix=""
-			urlPrefix="#"
-# 			if DMmString.startswith(exactMatchPrefix):
+			labelPrefix=""
+			symbol="point"
+# 			if DMmString.startswith(bestMatchLabelPrefix):
 			if DMmString==self.bestMatch:
-				DMmString=DMmString.replace(exactMatchPrefix,"")
-				prefix=exactMatchPrefix
-				urlPrefix=exactUrlPrefix
-			if DMmString.startswith(closeMatchPrefix):
-				DMmString=DMmString.replace(closeMatchPrefix,"")
-				prefix=closeMatchPrefix
-				urlPrefix=closeUrlPrefix
+				DMmString=DMmString.replace(bestMatchLabelPrefix,"")
+				labelPrefix=bestMatchLabelPrefix
+				symbol=bestMatchSymbol
+			if DMmString.startswith(closeMatchLabelPrefix):
+				DMmString=DMmString.replace(closeMatchLabelPrefix,"")
+				labelPrefix=closeMatchLabelPrefix
+				symbol=closeMatchSymbol
 			print("  DMm : "+DMmString)
 			r=parse("{:g}deg {:g}min N x {:g}deg {:g}min W",DMmString)
 			print(r)
@@ -693,20 +704,20 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DMmIdx)
 			else:
 				idx=""
-			markerList.append([prefix+markerName+"_DMm"+idx,r[0]+r[1]/60.0,-(r[2]+r[3]/60.0),urlPrefix+"FF00FF"])
+			markerList.append([labelPrefix+markerName+"_DMm"+idx,r[0]+r[1]/60.0,-(r[2]+r[3]/60.0),"FF00FF",symbol])
 		for DMSsString in self.coordDMSsStringList:
 			DMSsIdx=DMSsIdx+1
-			prefix=""
-			urlPrefix="#"
-# 			if DMSsString.startswith(exactMatchPrefix):
+			labelPrefix=""
+			symbol="point"
+# 			if DMSsString.startswith(bestMatchLabelPrefix):
 			if DMSsString==self.bestMatch:
-				DMSsString=DMSsString.replace(exactMatchPrefix,"")
-				prefix=exactMatchPrefix
-				urlPrefix=exactUrlPrefix
-			if DMSsString.startswith(closeMatchPrefix):
-				DMSsString=DMSsString.replace(closeMatchPrefix,"")
-				prefix=closeMatchPrefix
-				urlPrefix=closeUrlPrefix
+				DMSsString=DMSsString.replace(bestMatchLabelPrefix,"")
+				labelPrefix=bestMatchLabelPrefix
+				symbol=bestMatchSymbol
+			if DMSsString.startswith(closeMatchLabelPrefix):
+				DMSsString=DMSsString.replace(closeMatchLabelPrefix,"")
+				labelPrefix=closeMatchLabelPrefix
+				symbol=closeMatchSymbol
 			print("  DMSs: "+DMSsString)
 			r=parse("{:g}deg {:g}min {:g}sec N x {:g}deg {:g}min {:g}sec W",DMSsString)
 			print(r)
@@ -714,7 +725,7 @@ class MyWindow(QDialog,Ui_buckshot):
 				idx=str(DMSsIdx)
 			else:
 				idx=""
-			markerList.append([prefix+markerName+"_DMSs"+idx,r[0]+r[1]/60.0+r[2]/3600.0,-(r[3]+r[4]/60.0+r[5]/3600.0),urlPrefix+"0000FF"])
+			markerList.append([labelPrefix+markerName+"_DMSs"+idx,r[0]+r[1]/60.0+r[2]/3600.0,-(r[3]+r[4]/60.0+r[5]/3600.0),"0000FF",symbol])
 
 		print("Final marker list:")
 		print(str(markerList))
@@ -724,8 +735,7 @@ class MyWindow(QDialog,Ui_buckshot):
 		else:
 			infoStr="\nWrote GPX?   NO"
 
-		if self.ui.URLField.text():
-			
+		if self.ui.URLField.text():		
 			url=self.ui.URLField.text()
 			p=url.lower().replace("http://","").split("/")
 			domainAndPort=p[0]
@@ -733,21 +743,20 @@ class MyWindow(QDialog,Ui_buckshot):
 			print("domainAndPort: "+domainAndPort)
 			print("map ID: "+mapID)
 			
-			sts=SartopoSession(mapID)
+			sts=SartopoSession(domainAndPort=domainAndPort,mapID=mapID)
 			fid=sts.addFolder("Buckshot")
+			print("  folder id="+str(fid))
 			for marker in markerList:
-				name=marker[0]
-				url=marker[3]
-				[name,lat,lon,url]=marker
-				comments=""
-				if name.startswith(exactMatchPrefix):
-					comments="User-selected best match!"
-				if name.startswith(closeMatchPrefix):
-					comments="CLOSE match for specified coordinates"
-				sts.addMarker(lat,lon,marker[0],fid,url,comments)
-			
+				[title,lat,lon,color,symbol]=marker
+				description=""
+				if title.startswith(bestMatchLabelPrefix):
+					description="User-selected best match!"
+				if title.startswith(closeMatchLabelPrefix):
+					description="CLOSE match for specified coordinates"
+				sts.addMarker(lat,lon,title,description,color,symbol,None,fid)
+			infoStr+="\nWrote URL?   YES"
 		else:
-			infoStr+="\nWrote URL?   NO"
+			infoStr+="\nWrote URL?    NO"
 			print("No URL specified; skipping URL export.")
 			
 		QMessageBox.information(self,"Markers Created","Markers created successfully.\n"+infoStr)
