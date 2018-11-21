@@ -1,7 +1,7 @@
 # buckshot
 SAR coordinate buckshot - show lat/lon coordinate possibilities in all three coordinate systems
 
-The coordinate possibilities can be sent to a GPX file, and can be sent to any accessable saved SARSoft map.
+The coordinate possibilities can be sent to a GPX file, and can be sent to any accessable saved SARTopo Offline or sartopo.com map.
 
 See the latest installation instructions [here](INSTALL.md).
 
